@@ -1,13 +1,16 @@
 
+const http = require("http");
 const WebSocket = require("ws");
 
-const server = new WebSocket.Server({
-  port: process.env.PORT || 8080
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("F3X Sync relay is running!");
 });
 
+const wss = new WebSocket.Server({ server });
 const rooms = new Map();
 
-server.on("connection", (socket) => {
+wss.on("connection", (socket) => {
   let room = null;
 
   socket.on("message", (raw) => {
@@ -15,7 +18,10 @@ server.on("connection", (socket) => {
       const message = JSON.parse(raw.toString());
 
       if (message.type === "join") {
-        room = message.room;
+        if (typeof message.room !== "string" ||
+            !message.room.trim()) return;
+
+        room = message.room.trim();
 
         if (!rooms.has(room)) {
           rooms.set(room, new Set());
@@ -34,16 +40,14 @@ server.on("connection", (socket) => {
 
       if (!room || !rooms.has(room)) return;
 
-      const clients = rooms.get(room);
-
-      for (const client of clients) {
+      for (const client of rooms.get(room)) {
         if (client !== socket &&
             client.readyState === WebSocket.OPEN) {
           client.send(raw.toString());
         }
       }
     } catch (error) {
-      console.error(error);
+      console.error("Message error:", error);
     }
   });
 
@@ -59,4 +63,8 @@ server.on("connection", (socket) => {
   });
 });
 
-console.log("F3X relay running");
+const PORT = process.env.PORT || 8080;
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`F3X relay running on port ${PORT}`);
+});
