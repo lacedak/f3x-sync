@@ -1,4 +1,3 @@
-
 -- F3X Sync client adapter for Potassium.
 -- Mirrors only F3X-created parts to other opted-in clients.
 -- Shared parts are local visual copies, not server-owned parts.
@@ -331,9 +330,11 @@ if not sourceOk or type(source) ~= "string" then
 end
 
 -- Patch the exact F3X clone creation point.
-local cloneNeedle = 'local rd=xj1:Clone()rd.Parent=Workspace'
+-- gsub uses Lua patterns, so parentheses and the dot must be escaped.
+local cloneNeedle = 'local rd=xj1:Clone%(%)rd%.Parent=Workspace'
 
-local clonePatch = cloneNeedle ..
+local clonePatch =
+    'local rd=xj1:Clone()rd.Parent=Workspace' ..
     ' if getgenv().F3XSyncRegisterPart then getgenv().F3XSyncRegisterPart(rd) end'
 
 -- Patch the exact F3X New Part creation point.
@@ -342,7 +343,7 @@ local newPartNeedle = 'GxQqHPYH.Anchored=true'
 local newPartPatch = newPartNeedle ..
     ' if getgenv().F3XSyncRegisterPart then getgenv().F3XSyncRegisterPart(GxQqHPYH) end'
 
--- IMPORTANT: gsub returns the new string FIRST, then the match count.
+-- gsub returns the modified string first, then the replacement count.
 local patchedSource, cloneCount =
     source:gsub(cloneNeedle, clonePatch, 1)
 
