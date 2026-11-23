@@ -26,13 +26,14 @@ wss.on("connection", (socket) => {
       room = message.room.trim().slice(0, 160);
 
       if (!rooms.has(room)) {
-        rooms.set(room, { clients: new Set(), builds: new Map() });
+        rooms.set(room, { clients: new Set(), builds: new Map(), lighting: null });
       }
       const state = rooms.get(room);
       state.clients.add(socket);
       socket.send(JSON.stringify({
         type: "snapshot",
-        builds: Array.from(state.builds.values())
+        builds: Array.from(state.builds.values()),
+        lighting: state.lighting
       }));
       return;
     }
@@ -45,9 +46,14 @@ wss.on("connection", (socket) => {
       const id = message.build.id.slice(0, 100);
       if (state.builds.has(id) || state.builds.size < MAX_BUILDS_PER_ROOM) {
         state.builds.set(id, message.build);
+      } else {
+        return;
       }
     } else if (message.type === "delete" && typeof message.id === "string") {
       state.builds.delete(message.id.slice(0, 100));
+    } else if (message.type === "lighting" && message.lighting &&
+               typeof message.lighting === "object" && !Array.isArray(message.lighting)) {
+      state.lighting = message.lighting;
     } else {
       return;
     }
@@ -64,7 +70,7 @@ wss.on("connection", (socket) => {
     if (!room || !rooms.has(room)) return;
     const state = rooms.get(room);
     state.clients.delete(socket);
-    if (state.clients.size === 0 && state.builds.size === 0) {
+    if (state.clients.size === 0 && state.builds.size === 0 && state.lighting === null) {
       rooms.delete(room);
     }
   });
