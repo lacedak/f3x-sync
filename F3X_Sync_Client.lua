@@ -203,7 +203,11 @@ local function createRemote(b)
     local ownPart = localById[b.id]
     if ownPart then
         pcall(applyBuild, ownPart, b)
-        lastSent[ownPart] = encodeBuild(b)
+        -- Baseline against the properties actually applied locally.
+        -- applyBuild enforces local collision/anchoring, so comparing against
+        -- the sender's raw payload would cause a continuous update echo.
+        local current = capture(ownPart, b.id)
+        lastSent[ownPart] = current and encodeBuild(current) or encodeBuild(b)
         return
     end
 
@@ -225,7 +229,11 @@ local function createRemote(b)
 
     local applied = pcall(applyBuild, part, b)
     if applied then
-        remoteLastSent[b.id] = encodeBuild(b)
+        -- Store the actual local state after applying the remote update.
+        -- This prevents forced local collision settings from being echoed
+        -- back to the relay every polling interval.
+        local current = capture(part, b.id)
+        remoteLastSent[b.id] = current and encodeBuild(current) or encodeBuild(b)
     end
 end
 
